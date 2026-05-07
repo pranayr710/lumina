@@ -15,7 +15,8 @@ import ReactFlow, {
   BackgroundVariant,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { FolderOpen, ChevronLeft, GitBranch, Sparkles, X, LayoutDashboard, HelpCircle, BookOpen } from "lucide-react";
+import { FolderOpen, ChevronLeft, GitBranch, Sparkles, X, LayoutDashboard, HelpCircle, BookOpen, Download, Eye, EyeOff, Shield } from "lucide-react";
+import { exportToN8n } from "@/l/exportN8n";
 import Sidebar from "./Sidebar";
 import WorkflowPanel from "./WorkflowPanel";
 import { NODE_TYPES } from "@/l/reactFlowTypes";
@@ -162,6 +163,10 @@ export default function Canvas() {
   const [aiChatOpen, setAiChatOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [showPrivacyHud, setShowPrivacyHud] = useState(false);
+  const [aiWireLoading, setAiWireLoading] = useState(false);
 
   useEffect(() => {
     (window as any).toggleVault = () => setVaultOpen((v) => !v);
@@ -307,13 +312,38 @@ export default function Canvas() {
       }
     };
 
+    const autoConnectHandler = (data: {
+      edges?: { source: string; target: string; sourceHandle?: string; targetHandle?: string; id?: string }[];
+    }) => {
+      setAiWireLoading(false);
+      if (data.edges?.length) {
+        setEdges((eds) => {
+          const existingPairs = new Set(eds.map((e) => `${e.source}-${e.target}`));
+          const newEdges = (data.edges || [])
+            .filter((e) => !existingPairs.has(`${e.source}-${e.target}`))
+            .map((e, i) => ({
+              id: e.id || `e-auto-${e.source}-${e.target}-${Date.now()}-${i}`,
+              source: e.source,
+              target: e.target,
+              sourceHandle: e.sourceHandle,
+              targetHandle: e.targetHandle,
+              animated: true,
+              style: { stroke: "#4285F4", strokeWidth: 3, filter: "drop-shadow(0 0 8px rgba(66,133,244,0.5))" },
+            }));
+          return [...eds, ...newEdges];
+        });
+      }
+    };
+
     pipelineSocket.on("workflow_generated", generatedHandler);
     pipelineSocket.on("chat_result", chatHandler);
+    pipelineSocket.on("auto_connect_result", autoConnectHandler);
 
     return () => {
       pipelineSocket.off("status", statusHandler);
       pipelineSocket.off("workflow_generated", generatedHandler);
       pipelineSocket.off("chat_result", chatHandler);
+      pipelineSocket.off("auto_connect_result", autoConnectHandler);
       pipelineSocket.disconnect();
     };
   }, [setNodes, setEdges]);
@@ -555,6 +585,31 @@ export default function Canvas() {
     [reactFlowInstance, setNodes]
   );
 
+  const handleExportN8n = useCallback(async () => {
+    if (!nodes.length) return;
+    setExportLoading(true);
+    setExportError(null);
+    try {
+      await exportToN8n(nodes, edges);
+    } catch (err: any) {
+      setExportError(err?.message || "Export failed");
+      setTimeout(() => setExportError(null), 4000);
+    } finally {
+      setExportLoading(false);
+    }
+  }, [nodes, edges]);
+
+  const handleAiAutoWire = useCallback(() => {
+    if (!backendConnected || nodes.length < 2) return;
+    setAiWireLoading(true);
+    pipelineSocket.send("auto_connect", {
+      nodes: nodes.map((n) => ({ id: n.id, type: n.type })),
+      existing_edges: edges.map((e) => ({ source: e.source, target: e.target })),
+    });
+    // Fallback timeout in case backend doesn't respond
+    setTimeout(() => setAiWireLoading(false), 8000);
+  }, [backendConnected, nodes, edges]);
+
   const handleAutoWire = useCallback(() => {
     const cam = nodes.find(n => n.type === 'camera');
     const det = nodes.find(n => n.type === 'detection');
@@ -693,7 +748,32 @@ export default function Canvas() {
             </div>
 
             <div className="flex items-center gap-4" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
-              <button 
+              {/* n8n Export button */}
+              <button
+                onClick={handleExportN8n}
+                disabled={exportLoading || !nodes.length}
+                className="nodrag px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 border border-white/5 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+                title="Export pipeline as n8n workflow JSON"
+              >
+                <Download size={12} />
+                {exportLoading ? "Exporting..." : "n8n Export"}
+              </button>
+
+              {/* Privacy HUD toggle */}
+              <button
+                onClick={() => setShowPrivacyHud((v) => !v)}
+                className={`nodrag px-3 py-1.5 rounded-full text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                  showPrivacyHud
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                    : "bg-white/5 border-white/5 text-slate-400 hover:bg-white/10"
+                }`}
+                title="Toggle privacy mode indicators"
+              >
+                <Shield size={12} />
+                Privacy
+              </button>
+
+              <button
                 onClick={() => setVaultOpen(true)}
                 className="nodrag px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 border border-white/5 transition-all flex items-center gap-1.5 cursor-pointer"
               >
@@ -707,9 +787,31 @@ export default function Canvas() {
           </div>
         )}
 
-        {generateError && (
-          <div className="absolute top-11 left-4 right-4 z-20 nodrag px-3 py-2 rounded-md text-xs text-red-400 border border-red-500/30 bg-red-950/30">
-            {generateError}
+        {(generateError || exportError) && (
+          <div className="absolute top-16 left-4 right-4 z-20 nodrag px-3 py-2 rounded-md text-xs text-red-400 border border-red-500/30 bg-red-950/30">
+            {generateError || exportError}
+          </div>
+        )}
+
+        {/* Privacy HUD legend */}
+        {showPrivacyHud && (
+          <div
+            className="absolute top-16 right-4 z-20 nodrag px-4 py-3 rounded-xl border border-white/10 bg-[#09090d]/95 backdrop-blur-xl shadow-2xl"
+            style={{ minWidth: 220 }}
+          >
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Data Residency</p>
+            {[
+              { color: "#4285F4", label: "INPUT", desc: "Data source — local only" },
+              { color: "#34A853", label: "LOCAL", desc: "On-device inference" },
+              { color: "#FBBC05", label: "GEMINI", desc: "Google Gemini API" },
+              { color: "#f97316", label: "CLOUD", desc: "External service" },
+            ].map(({ color, label, desc }) => (
+              <div key={label} className="flex items-center gap-2 mb-1.5">
+                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color, boxShadow: `0 0 4px ${color}80` }} />
+                <span className="text-[9px] font-bold w-12" style={{ color }}>{label}</span>
+                <span className="text-[9px] text-slate-500">{desc}</span>
+              </div>
+            ))}
           </div>
         )}
 
@@ -811,8 +913,14 @@ export default function Canvas() {
               const colors: Record<string, string> = {
                 camera: "#4285F4",
                 video: "#4285F4",
+                ipCamera: "#4285F4",
                 detection: "#f97316",
+                pose: "#f97316",
+                faceMatch: "#f97316",
+                ocr: "#f97316",
                 visualLlm: "#a855f7",
+                geminiLive: "#FBBC05",
+                toolUse: "#6366F1",
                 logic: "#f59e0b",
                 llm: "#3b82f6",
                 soundAction: "#f97316",
@@ -822,9 +930,20 @@ export default function Canvas() {
                 webhookAction: "#8b5cf6",
                 emailAction: "#3b82f6",
                 smsAction: "#14b8a6",
+                slackAction: "#4A154B",
+                discordAction: "#5865F2",
                 mic: "#FBBC05",
                 audioDetect: "#8b5cf6",
                 audioLlm: "#ec4899",
+                whisperStt: "#10b981",
+                timer: "#64748b",
+                debounce: "#64748b",
+                merge: "#64748b",
+                script: "#f59e0b",
+                mqttAction: "#059669",
+                googleSheetsAction: "#34A853",
+                speakAction: "#06b6d4",
+                fileAction: "#64748b",
               };
               return colors[node.type || ""] || "#64748b";
             }}
@@ -865,11 +984,21 @@ export default function Canvas() {
         {!isDashboard && (
           <>
             <button
+              onClick={handleAiAutoWire}
+              disabled={!backendConnected || aiWireLoading || nodes.length < 2}
+              className="px-4 py-2.5 rounded-xl bg-[#4285F4]/10 border border-[#4285F4]/20 text-[#4285F4] text-[10px] font-black uppercase tracking-widest hover:bg-[#4285F4]/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-40"
+              title="AI-powered auto-connect using Gemini/Gemma3"
+            >
+              <Sparkles size={12} />
+              {aiWireLoading ? "Wiring..." : "AI Auto-Wire"}
+            </button>
+            <button
               onClick={handleAutoWire}
-              className="px-4 py-2.5 rounded-xl bg-[#4285F4]/10 border border-[#4285F4]/20 text-[#4285F4] text-[10px] font-black uppercase tracking-widest hover:bg-[#4285F4]/20 transition-all flex items-center gap-2 cursor-pointer"
+              className="px-4 py-2.5 rounded-xl bg-slate-800/50 border border-white/5 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:bg-slate-700/50 transition-all flex items-center gap-2 cursor-pointer"
+              title="Rule-based fast auto-connect"
             >
               <GitBranch size={12} />
-              Auto-Wire
+              Quick Wire
             </button>
             <button
               onClick={handleNuclearReset}

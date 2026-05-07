@@ -37,6 +37,8 @@ import {
   HelpCircle,
   BookOpen,
   Settings2,
+  Zap,
+  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -70,6 +72,8 @@ const iconMap: Record<string, React.ReactNode> = {
   Accessibility: <Accessibility size={16} />,
   Radio: <Radio size={16} />,
   UserCheck: <UserCheck size={16} />,
+  Zap: <Zap size={16} />,
+  Wrench: <Wrench size={16} />,
 };
 
 const categoryLabels: Record<string, string> = {

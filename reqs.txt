@@ -6,7 +6,7 @@ onnxruntime>=1.19.0
 numpy>=1.26.4
 Pillow>=10.4.0
 python-multipart>=0.0.9
-# nexaai>=1.0.0 (Bypassed due to S3 403 Forbidden upstream wheel build issues)
+opencv-python-headless>=4.10.0
 onnx>=1.16.0
 twilio>=9.0.0
 openai-whisper
@@ -14,4 +14,7 @@ ffmpeg-python
 setuptools
 paho-mqtt
 google-generativeai>=0.8.0
+google-genai>=1.0.0
+gspread>=6.0.0
+google-auth>=2.0.0
 python-dotenv>=1.0.0

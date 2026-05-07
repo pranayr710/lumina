@@ -29,6 +29,8 @@ import SpeakNode from "@/c/nodes/SpeakNode";
 import DiscordNode from "@/c/nodes/DiscordNode";
 import SlackNode from "@/c/nodes/SlackNode";
 import GoogleSheetsNode from "@/c/nodes/GoogleSheetsNode";
+import GeminiLiveNode from "@/c/nodes/GeminiLiveNode";
+import ToolUseNode from "@/c/nodes/ToolUseNode";
 
 export const NODE_TYPES = {
   camera: CameraNode,
@@ -62,4 +64,7 @@ export const NODE_TYPES = {
   discordAction: DiscordNode,
   slackAction: SlackNode,
   googleSheetsAction: GoogleSheetsNode,
+  // Hackathon additions
+  geminiLive: GeminiLiveNode,
+  toolUse: ToolUseNode,
 };

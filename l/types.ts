@@ -292,4 +292,21 @@ export const NODE_CATALOG: NodeTypeInfo[] = [
     accent: "#34A853", // Google Green
     icon: "Table",
   },
+  // ── Hackathon additions ──────────────────────────────────────────────────
+  {
+    type: "geminiLive",
+    label: "Gemini Live",
+    description: "Real-time bidirectional Gemini streaming",
+    category: "ai",
+    accent: "#FBBC05",
+    icon: "Zap",
+  },
+  {
+    type: "toolUse",
+    label: "Tool Use",
+    description: "Gemini function calling — invoke external tools",
+    category: "ai",
+    accent: "#6366F1",
+    icon: "Wrench",
+  },
 ];

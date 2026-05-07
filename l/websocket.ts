@@ -141,6 +141,14 @@ export class PipelineSocket {
     this.send("generate_workflow", { description });
   }
 
+  sendAutoConnect(nodes: { id: string; type?: string }[], existingEdges: { source: string; target: string }[]) {
+    this.send("auto_connect", { nodes, existing_edges: existingEdges });
+  }
+
+  sendGeminiLiveFrame(image: string, prompt: string, nodeId: string) {
+    this.send("gemini_live_frame", { image, prompt, node_id: nodeId });
+  }
+
   send(type: string, payload: any) {
     if (this.ws?.readyState !== WebSocket.OPEN) return;
     this.ws.send(JSON.stringify({ type, payload }));

@@ -6,7 +6,7 @@ const { spawn } = require("child_process");
 let win, srv;
 
 function startSrv() {
-  const py = process.env.LUMINA_PYTHON || "python";
+  const py = process.env.LUMINA_PYTHON || (require("fs").existsSync("v/Scripts/python.exe") ? "v/Scripts/python.exe" : "python");
   srv = spawn(py, ["srv.py"], { stdio: "inherit", shell: true });
   srv.on("error", (e) => console.error("Srv err:", e));
 }
