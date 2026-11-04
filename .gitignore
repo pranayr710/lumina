@@ -31,3 +31,15 @@ CLAUDE.md
 lumina.db
 s/
 m/
+
+# Local run output and scratch work
+*.log
+scratch/
+test-results/
+test-export.json
+lumina_flow.json
+nodered_final.json
+test_scene.jpg
+test_scene_b64.txt
+check_db.py
+.claire/
