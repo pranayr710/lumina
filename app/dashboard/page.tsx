@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Activity, Clock, Cpu, LayoutDashboard, Zap, Shield, Globe } from "lucide-react";
-import Sidebar from "@/c/Sidebar";
+import Sidebar from "@/components/Sidebar";
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<any>(null);

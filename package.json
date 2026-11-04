@@ -2,25 +2,26 @@
   "name": "lumina",
   "version": "1.0.0",
   "private": true,
-  "main": "app.js",
+  "main": "electron-main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "electron-dev": "concurrently \"next dev\" \"wait-on http://localhost:3000 && electron .\"",
     "electron": "electron .",
-    "backend": ".\\v\\Scripts\\python.exe srv.py",
+    "backend": ".\\v\\Scripts\\python.exe server.py",
     "full-dev": "concurrently \"npm run dev\" \"npm run backend\" \"wait-on http://localhost:3000 && npm run electron\""
   },
   "dependencies": {
+    "lucide-react": "^0.400.0",
     "next": "^14.2.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "reactflow": "^11.11.0",
-    "lucide-react": "^0.400.0",
     "zustand": "^4.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",

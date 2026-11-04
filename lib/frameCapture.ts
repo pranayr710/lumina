@@ -1,0 +1,120 @@
+export interface FrameCaptureOptions {
+  fps?: number;
+  width?: number;
+  height?: number;
+  deviceId?: string;
+  /** Longest edge of the JPEG actually sent to the backend. The vision model
+   *  downscales to 640 anyway, so capturing larger just wastes bandwidth/CPU. */
+  captureMaxDim?: number;
+  /** JPEG quality for sent frames (0-1). 0.7 is ample for detection. */
+  quality?: number;
+}
+
+export class FrameCapture {
+  private stream: MediaStream | null = null;
+  private video: HTMLVideoElement | null = null;
+  private canvas: HTMLCanvasElement | null = null;
+  private ctx: CanvasRenderingContext2D | null = null;
+  private intervalId: ReturnType<typeof setInterval> | null = null;
+  private _fps: number;
+  private _width: number;
+  private _height: number;
+  private _deviceId: string | undefined;
+  private _maxDim: number;
+  private _quality: number;
+  private onFrame: ((base64: string) => void) | null = null;
+
+  constructor(opts: FrameCaptureOptions = {}) {
+    this._fps = opts.fps ?? 3;
+    this._width = opts.width ?? 640;
+    this._height = opts.height ?? 480;
+    this._deviceId = opts.deviceId;
+    this._maxDim = opts.captureMaxDim ?? 640;
+    this._quality = opts.quality ?? 0.7;
+  }
+
+  get fps() {
+    return this._fps;
+  }
+
+  set fps(val: number) {
+    this._fps = Math.max(1, Math.min(30, val));
+    if (this.intervalId && this.onFrame) {
+      this.stop();
+      this.startCapture(this.onFrame);
+    }
+  }
+
+  async init(): Promise<MediaStream> {
+    this.stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: this._width },
+        height: { ideal: this._height },
+        ...(this._deviceId
+          ? { deviceId: { exact: this._deviceId } }
+          : { facingMode: "user" }),
+      },
+      audio: false,
+    });
+
+    this.video = document.createElement("video");
+    this.video.srcObject = this.stream;
+    this.video.playsInline = true;
+    await this.video.play();
+
+    // Size the capture canvas to the actual video dimensions, but cap the
+    // longest edge at captureMaxDim so the JPEG we send stays small. The live
+    // <video> preview reads the stream directly, so this never affects display.
+    const vw = this.video.videoWidth || this._width;
+    const vh = this.video.videoHeight || this._height;
+    const scale = Math.min(1, this._maxDim / Math.max(vw, vh));
+    this.canvas = document.createElement("canvas");
+    this.canvas.width = Math.round(vw * scale);
+    this.canvas.height = Math.round(vh * scale);
+    this.ctx = this.canvas.getContext("2d")!;
+
+    return this.stream;
+  }
+
+  captureFrame(): string | null {
+    if (!this.video || !this.ctx || !this.canvas) return null;
+    this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+    return this.canvas.toDataURL("image/jpeg", this._quality);
+  }
+
+  startCapture(callback: (base64: string) => void) {
+    this.onFrame = callback;
+    const intervalMs = Math.round(1000 / this._fps);
+    this.intervalId = setInterval(() => {
+      const frame = this.captureFrame();
+      if (frame) callback(frame);
+    }, intervalMs);
+  }
+
+  stop() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+  }
+
+  destroy() {
+    this.stop();
+    if (this.stream) {
+      this.stream.getTracks().forEach((t) => t.stop());
+      this.stream = null;
+    }
+    this.video = null;
+    this.canvas = null;
+    this.ctx = null;
+    this.onFrame = null;
+  }
+
+  getStream(): MediaStream | null {
+    return this.stream;
+  }
+
+  getVideoElement(): HTMLVideoElement | null {
+    return this.video;
+  }
+}

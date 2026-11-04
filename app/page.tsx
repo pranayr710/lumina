@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { ReactFlowProvider } from "reactflow";
-import Canvas from "@/c/Canvas";
-import LandingPage from "@/c/LandingPage";
+import Canvas from "@/components/Canvas";
+import LandingPage from "@/components/LandingPage";
 
 export default function Home() {
   const [entered, setEntered] = useState(false);
